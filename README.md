@@ -1,47 +1,13 @@
 # Automating Scylla deployments with Kubernetes
 
-This example demonstrates a simple example of deploying a Scylla cluster on Google Compute Engine with the open-source distribution of Kubernetes.
+This example demonstrates a simple example of deploying a Scylla cluster on Minicube
 
-Our goal is to be able to elastically scale our cluster up and down and for the Scylla nodes to automatically join the ring.
-
-## Overview
-
-### `Services` and `StatefulSets`
-
-A typical way to organize replicated containers is through `Services`, which automatically load-balance all instances behind a single IP address.
-
-However, in a stateful application like Scylla with its own cluster management at the application level, treating all instances as interchangable is not suitable.
-
-A `StatefulSet` (previously called a `PetSet`) is similar to a `Service`, but designates persistent names like `scylla-0`, `scylla-1`, ..., `scylla-n` which get dynamically bound to particular `Pods`.
-
-We still use a "headless" `Service` (without a single IP address) for aggregating all the running `Pods`.
-
-### Determining when an instance is ready
-
-Kubernetes queries running instances to determine when they're ready. A simple shell script, `ready-probe.sh`, uses `nodetool` to check the status of the node and reports success once it has joined the Scylla cluster.
-
-We use a `ConfigMap` to describe the `ready-probe.sh` file, and mount the file at `/opt/ready-probe.sh` in the `StatefulSet` description.
-
-### Storage and `PersistentVolumes`
-
-A `StatefulSet` also describes a template for a `PersistentVolumeClaim` for each `Pod`. `PersistentVolumes` are dynamically created based on the number of instances in the `StatefulSet` using the Google Compute Engine storage provisioner.
-
-After a `PersistentVolume` has been created, it can be dynamically bound to different `Pods` as the need arises.
-
-### Seeding the cluster
-
-A "seed" list in Scylla's configuration instructs new nodes on which nodes to contact in order to join the Scylla cluster. While the IP address of particular pods is ephemeral, the static identifiers created by the `StatefulSet` also get mapped to DNS records. We can specify the seed node using these host names. An example is `scylla-0.scylla.default.svc.cluster.local`
 
 ## Demo
 
-This example uses Scylla 2.0.0. It assumes that the Kubernetes management tools (`kubectl`, etc) have been installed locally. We use Google Compute Engine with Kubernetes: the cluster initialization script, `cluster/kube-up.sh`, quickly and automatically creates a 4 node Kubernetes cluster.
+- Install minikube/kubectl
 
-- First, create the `StorageClass` instructing Kubernetes on the kind of volumes to create (SSD):
-  ```bash
-  $ kubectl create -f scylla-storageclass.yaml
-  ```
-
-- Next, create the `Service` aggegating Scylla `Pods`:
+- First, create the `Service` aggegating Scylla `Pods`:
   ```bash
   $ kubectl create -f scylla-service.yaml
   ```
@@ -70,10 +36,6 @@ Finally, we can increase the size of our cluster:
 ```bash
 $ kubectl edit statefulset scylla
 ```
-
-Increase the number of replicas to 4, then save the file, and exit. The new node should join the ring.
-
-Again, we can use `nodetool status` to observe that the Scylla cluster now consists of 4 nodes.
 
 # References
 
